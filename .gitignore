@@ -1,0 +1,7 @@
+# 公開リポジトリには一覧ページに必要なファイルだけを入れる。
+# 取得スクリプト・手順書・作業データ（data/, data_trial/）は手元にだけ置く。
+/*
+!/.gitignore
+!/index.html
+!/data.json
+!/README.md
