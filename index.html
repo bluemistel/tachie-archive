@@ -173,6 +173,8 @@ details.tagpanel[open] > summary { margin-bottom: 8px; }
 .card {
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; min-width: 0;
+  /* 画面外のカードはスクロールで近づくまで描画しない */
+  content-visibility: auto; contain-intrinsic-size: auto 560px;
 }
 .thumb { display: block; aspect-ratio: 4 / 3; background: var(--surface-2); position: relative; }
 .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -322,6 +324,13 @@ footer p { margin: 4px 0; }
             <option value="fav">お気に入りに追加した順</option>
           </select>
         </label>
+        <label class="count">表示
+          <select id="per">
+            <option value="20">20件</option>
+            <option value="50">50件</option>
+            <option value="100">100件</option>
+          </select>
+        </label>
         <div class="seg" role="group" aria-label="表示形式">
           <button type="button" data-view="card">カード</button>
           <button type="button" data-view="table">表</button>
@@ -344,9 +353,11 @@ footer p { margin: 4px 0; }
 
 <script>
 "use strict";
-const PER_PAGE = 50;
+const PER_OPTIONS = [20, 50, 100];
+const PER_DEFAULT = 20;
 const TOP_TAGS = 40;
 const FAV_KEY = "tachieMatome.favorites.v1";
+const PER_KEY = "tachieMatome.perPage";
 const SOFTWARE = [
   ["VOICEROID", /voiceroid/],
   ["CeVIO", /cevio/],
@@ -359,7 +370,7 @@ const FREE_TAG = /フリー立ち絵リンク$/;
 const URL_RE = /https?:\/\/[^\s<>"']+/g;
 const DEFAULTS = {
   mode: "all", q: "", sw: "", free: "", year: "", url: "", adult: false, user: "", tags: [],
-  undone: false, sort: "new", view: "card", page: 1,
+  undone: false, sort: "new", view: "card", per: PER_DEFAULT, page: 1,
 };
 
 let items = [];
@@ -369,6 +380,8 @@ let pageCount = 1;
 let tagsExpanded = false;
 let tagQuery = "";
 let lastList = [];
+let lastFacetKey = "";
+let indexed = 0;
 const $ = (id) => document.getElementById(id);
 
 // 全角半角・大文字小文字・ひらがなカタカナを同一視
@@ -395,13 +408,27 @@ function linkify(text) {
 function prepare(it) {
   it.tags = it.tags || [];
   it.uploader_urls = it.uploader_urls || [];
-  it._hay = norm([it.title, it.description, it.user_name, it.tags.join("\n")].join("\n"));
-  const swHay = norm([it.title, it.description, it.tags.join("\n")].join("\n"));
-  it._sw = SOFTWARE.filter(([, re]) => re.test(swHay)).map(([name]) => name);
   it._free = it.tags.some((t) => FREE_TAG.test(t));
   it._year = (it.created || "").slice(0, 4);
   it._adult = (it.adult_level || 0) > 0;
   return it;
+}
+
+// キーワード検索とソフト判定用の正規化は重いので、最初の画面を出してから裏で少しずつ作る
+function indexItem(it) {
+  const base = norm([it.title, it.description, it.tags.join("\n")].join("\n"));
+  it._hay = base + "\n" + norm(it.user_name);
+  it._sw = SOFTWARE.filter(([, re]) => re.test(base)).map(([name]) => name);
+}
+
+function ensureIndexed() {
+  while (indexed < items.length) indexItem(items[indexed++]);
+}
+
+function indexInBackground() {
+  const end = Math.min(indexed + 400, items.length);
+  while (indexed < end) indexItem(items[indexed++]);
+  if (indexed < items.length) setTimeout(indexInBackground, 0);
 }
 
 function toast(msg) {
@@ -517,8 +544,23 @@ function readURL() {
     undone: p.get("undone") === "1",
     sort: p.get("sort") || "new",
     view: p.get("view") === "table" ? "table" : "card",
+    per: parsePer(p.get("per")) || loadPer(),
     page: Math.max(1, parseInt(p.get("page"), 10) || 1),
   };
+}
+
+function parsePer(v) {
+  const n = parseInt(v, 10);
+  return PER_OPTIONS.includes(n) ? n : null;
+}
+
+// 表示件数は閲覧者ごとの好みとして覚えておく
+function loadPer() {
+  try { return parsePer(localStorage.getItem(PER_KEY)) || PER_DEFAULT; } catch { return PER_DEFAULT; }
+}
+
+function savePer(n) {
+  try { localStorage.setItem(PER_KEY, String(n)); } catch {}
 }
 
 function writeURL() {
@@ -530,6 +572,8 @@ function writeURL() {
   if (state.mode === "fav" && state.undone) p.set("undone", "1");
   if (state.sort !== DEFAULTS.sort) p.set("sort", state.sort);
   if (state.view !== DEFAULTS.view) p.set("view", state.view);
+  // ページ番号は表示件数とセットでないと共有先で別の位置になるので、2ページ目以降は必ず残す
+  if (state.per !== PER_DEFAULT || state.page > 1) p.set("per", state.per);
   if (state.page > 1) p.set("page", state.page);
   const qs = p.toString();
   history.replaceState(null, "", qs ? `?${qs}` : location.pathname);
@@ -539,7 +583,7 @@ function syncControls() {
   const fav = state.mode === "fav";
   if (!fav && state.sort === "fav") state.sort = "new";
   $("q").value = state.q;
-  for (const k of ["sw", "free", "year", "url", "sort"]) $(k).value = state[k];
+  for (const k of ["sw", "free", "year", "url", "sort", "per"]) $(k).value = state[k];
   $("adult").checked = state.adult;
   $("undone").checked = state.undone;
   $("sort").querySelector('[value="fav"]').hidden = !fav;
@@ -575,6 +619,7 @@ function parseQuery(q) {
 
 function filtered() {
   const { inc, exc } = parseQuery(state.q);
+  if (inc.length || exc.length || state.sw) ensureIndexed();
   const fav = state.mode === "fav";
   return items.filter((it) => {
     if (fav && (!favs[it.id] || (state.undone && favs[it.id].done))) return false;
@@ -632,8 +677,9 @@ function userButton(it) {
     ? `<button type="button" class="user" data-user="${esc(it.user_id)}">${esc(it.user_name)}</button>` : "";
 }
 
+// 概要文の中身は開いたときに作る（toggle イベントで埋める）
 function descBlock(it) {
-  return it.description ? `<details class="desc"><summary>概要文</summary><div class="text">${linkify(it.description)}</div></details>` : "";
+  return it.description ? `<details class="desc" data-desc="${esc(it.id)}"><summary>概要文</summary><div class="text"></div></details>` : "";
 }
 
 function cardHTML(it) {
@@ -728,7 +774,7 @@ function renderFavBar() {
 }
 
 function renderPager(total) {
-  pageCount = Math.max(1, Math.ceil(total / PER_PAGE));
+  pageCount = Math.max(1, Math.ceil(total / state.per));
   $("keyhint").hidden = pageCount <= 1;
   if (pageCount <= 1) { $("pager").innerHTML = ""; return; }
   const cur = state.page;
@@ -748,10 +794,10 @@ function renderPager(total) {
 function render() {
   const list = filtered().sort(SORTS[state.sort] || SORTS.new);
   lastList = list;
-  const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const pages = Math.max(1, Math.ceil(list.length / state.per));
   if (state.page > pages) state.page = pages;
-  const start = (state.page - 1) * PER_PAGE;
-  const slice = list.slice(start, start + PER_PAGE);
+  const start = (state.page - 1) * state.per;
+  const slice = list.slice(start, start + state.per);
 
   const pool = state.mode === "fav" ? items.filter((it) => favs[it.id]) : items;
   const hiddenAdult = state.adult ? 0 : pool.filter((it) => it._adult).length;
@@ -760,7 +806,13 @@ function render() {
     (hiddenAdult ? `　成人向け ${hiddenAdult.toLocaleString("ja-JP")} 件は非表示` : "");
 
   renderActive();
-  renderFacets(list);
+  // ページ送り・並び替え・表示切り替えでは件数が変わらないので、タグ一覧は作り直さない
+  const facetKey = JSON.stringify([state.mode, state.q, state.sw, state.free, state.year, state.url,
+    state.adult, state.user, state.tags, state.undone, list.length]);
+  if (facetKey !== lastFacetKey) {
+    lastFacetKey = facetKey;
+    renderFacets(list);
+  }
   renderFavBar();
   const emptyMsg = state.mode === "fav" && !Object.keys(favs).length
     ? "お気に入りはまだありません。作品の ☆ を押すと、ここにまとめて表示されます。"
@@ -780,6 +832,19 @@ function bindEvents() {
   });
   for (const k of ["sw", "free", "year", "url"]) $(k).addEventListener("change", (e) => update({ [k]: e.target.value }));
   $("sort").addEventListener("change", (e) => update({ sort: e.target.value }));
+  $("per").addEventListener("change", (e) => {
+    const per = parsePer(e.target.value) || PER_DEFAULT;
+    savePer(per);
+    // 今見ている先頭の作品が含まれるページに移る
+    const first = (state.page - 1) * state.per;
+    update({ per, page: Math.floor(first / per) + 1 }, { keepPage: true });
+  });
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (!d.open || !d.matches?.("details[data-desc]")) return;
+    const box = d.querySelector(".text");
+    if (!box.childNodes.length) box.innerHTML = linkify(byId.get(d.dataset.desc)?.description || "");
+  }, true);
   $("adult").addEventListener("change", (e) => update({ adult: e.target.checked }));
   $("undone").addEventListener("change", (e) => update({ undone: e.target.checked }));
   for (const b of document.querySelectorAll(".seg button")) b.addEventListener("click", () => update({ view: b.dataset.view }, { keepPage: true }));
@@ -891,6 +956,7 @@ async function main() {
   if (matchMedia("(max-width: 640px)").matches) $("tagpanel").open = false;
   renderFavCount();
   bindEvents();
+  $("results").innerHTML = `<div class="empty">作品データを読み込んでいます…（約 3MB）</div>`;
   try {
     const res = await fetch("data.json", { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -907,6 +973,7 @@ async function main() {
   readURL();
   syncControls();
   render();
+  setTimeout(indexInBackground, 0);
 }
 main();
 </script>
