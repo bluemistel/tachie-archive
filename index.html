@@ -304,12 +304,13 @@ footer p { margin: 4px 0; }
       </div>
       <div class="row">
         <button type="button" class="btn" id="copyurls">表示中のURLをコピー</button>
+        <button type="button" class="btn" id="exportcsv">表示中をCSVで書き出し</button>
         <button type="button" class="btn" id="exportfav">書き出し（JSON）</button>
         <button type="button" class="btn" id="importfav">読み込み</button>
         <button type="button" class="btn danger" id="clearfav">すべて削除</button>
         <input type="file" id="importfile" accept="application/json,.json" hidden>
       </div>
-      <p class="hint">お気に入りはこのブラウザ内にだけ保存されます。別の端末やブラウザへは「書き出し」→「読み込み」で移せます。</p>
+      <p class="hint">お気に入りはこのブラウザ内にだけ保存されます。別の端末やブラウザへは「書き出し（JSON）」→「読み込み」で移せます。CSV は表計算ソフト用で（タイトル・投稿者・投稿日・静画URL・アップロード先URL）、読み込みには使えません。</p>
     </section>
 
     <div class="resultbar" id="resultbar">
@@ -472,16 +473,46 @@ function setDone(id, done) {
   saveFavs();
 }
 
-function exportFavs() {
-  const data = { app: "tachie-matome", version: 1, exported_at: new Date().toISOString(), favorites: favs };
-  const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
-  const a = document.createElement("a");
+function downloadBlob(blob, ext) {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `tachie-favorites-${ymd}.json`;
+  a.download = `tachie-favorites-${ymd}.${ext}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function exportFavs() {
+  const data = { app: "tachie-matome", version: 1, exported_at: new Date().toISOString(), favorites: favs };
+  downloadBlob(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }), "json");
+}
+
+function csvCell(v) {
+  let s = String(v ?? "");
+  // 表計算ソフトで数式として解釈されないよう、= + - @ などで始まる値は文字列扱いにする
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// 表計算ソフト向け。UTF-8（Excel が文字コードを判別できるよう BOM 付き）、行区切りは CRLF。
+// アップロード先が複数ある作品は、同じセルの中に改行区切りで入れる
+function exportCsv() {
+  const list = lastList;
+  if (!list.length) { toast("書き出す作品がありません"); return; }
+  const rows = [
+    ["静画タイトル", "投稿者", "投稿日", "静画URL", "アップロード先URL"],
+    ...list.map((it) => [
+      it.title || it.id,
+      it.user_name,
+      (it.created || "").slice(0, 19).replace("T", " "),
+      it.url,
+      it.uploader_urls.join("\n"),
+    ]),
+  ];
+  const csv = "﻿" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "csv");
+  toast(`${list.length} 件をCSVで書き出しました`);
 }
 
 async function importFavs(file) {
@@ -865,6 +896,7 @@ function bindEvents() {
 
   $("copyurls").addEventListener("click", copyUrls);
   $("exportfav").addEventListener("click", exportFavs);
+  $("exportcsv").addEventListener("click", exportCsv);
   $("importfav").addEventListener("click", () => $("importfile").click());
   $("importfile").addEventListener("change", (e) => {
     if (e.target.files[0]) importFavs(e.target.files[0]);
