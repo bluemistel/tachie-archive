@@ -83,7 +83,7 @@ h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
   border-bottom: 3px solid transparent; white-space: nowrap; flex: none;
 }
 .tabs .sep { flex: none; width: 1px; background: var(--border); margin: 8px 4px; }
-.tabs .addclip { color: var(--accent); }
+.tabs .addlist { color: var(--accent); }
 .tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
 .tabs .n { font-variant-numeric: tabular-nums; font-size: 12px; padding: 0 6px; border-radius: 999px; background: var(--surface-2); margin-left: 4px; }
 
@@ -149,14 +149,14 @@ details.tagpanel[open] > summary { margin-bottom: 8px; }
 }
 .btn:hover { border-color: var(--accent); }
 .btn.danger { color: var(--warn); }
-.clipname { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
-.clipname input {
+.listname { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.listname input {
   padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-2);
   font-size: 15px; font-weight: 600; color: var(--text); width: min(320px, 60vw);
 }
 .favtools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
-.clipsel { font-size: 12px; padding: 3px 6px; max-width: 100%; }
-td.ops .clipsel { margin-top: 6px; width: 100%; }
+.listsel { font-size: 12px; padding: 3px 6px; max-width: 100%; }
+td.ops .listsel { margin-top: 6px; width: 100%; }
 
 /* result bar */
 .resultbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; scroll-margin-top: 12px; }
@@ -230,7 +230,7 @@ td.t a.ttl:hover { color: var(--accent); text-decoration: underline; }
 td.u { min-width: 200px; }
 td.u a { display: block; color: var(--up); font-weight: 600; word-break: break-all; }
 td.ops { min-width: 84px; }
-.tablewrap td.ops:has(.clipsel) { min-width: 150px; }
+.tablewrap td.ops:has(.listsel) { min-width: 150px; }
 td.ops .fav { display: block; margin: 0 auto 6px; }
 td.ops .done { white-space: nowrap; }
 td.who { min-width: 6em; }
@@ -306,9 +306,9 @@ footer p { margin: 4px 0; }
 
   <main>
     <section class="panel favbar" id="favbar" hidden aria-label="お気に入りの操作">
-      <div class="row" id="clipbar" hidden>
-        <label class="clipname">クリップ名 <input type="text" id="clipname" maxlength="40" autocomplete="off"></label>
-        <button type="button" class="btn danger" id="delclip">クリップを削除</button>
+      <div class="row" id="listbar" hidden>
+        <label class="listname">リスト名 <input type="text" id="listname" maxlength="40" autocomplete="off"></label>
+        <button type="button" class="btn danger" id="dellist">リストを削除</button>
       </div>
       <div class="row">
         <span class="progress" id="favprogress"></span>
@@ -324,8 +324,8 @@ footer p { margin: 4px 0; }
         </span>
         <input type="file" id="importfile" accept="application/json,.json" hidden>
       </div>
-      <p class="hint" id="favhint">お気に入りとクリップはこのブラウザ内にだけ保存されます。別の端末やブラウザへは「書き出し（JSON）」→「読み込み」で移せます。CSV は表計算ソフト用で（タイトル・投稿者・投稿日・静画URL・アップロード先URL）、読み込みには使えません。</p>
-      <p class="hint" id="cliphint" hidden>クリップはお気に入りを用途ごとに分けて整理するためのものです。作品の追加・削除は各作品の「クリップに追加…」から行います。URLのコピーとCSVは、このクリップに表示中の作品だけが対象です。</p>
+      <p class="hint" id="favhint">お気に入りとリストはこのブラウザ内にだけ保存されます。別の端末やブラウザへは「書き出し（JSON）」→「読み込み」で移せます。CSV は表計算ソフト用で（タイトル・投稿者・投稿日・静画URL・アップロード先URL）、読み込みには使えません。</p>
+      <p class="hint" id="listhint" hidden>リストはお気に入りを用途ごとに分けて整理するためのものです。作品の追加・削除は各作品の「リストに追加…」から行います。URLのコピーとCSVは、このリストに表示中の作品だけが対象です。</p>
     </section>
 
     <div class="resultbar" id="resultbar">
@@ -336,7 +336,7 @@ footer p { margin: 4px 0; }
             <option value="new">投稿日が新しい順</option>
             <option value="old">投稿日が古い順</option>
             <option value="views">閲覧数が多い順</option>
-            <option value="clips">静画クリップ数が多い順</option>
+            <option value="clips">クリップ数が多い順</option>
             <option value="fav">お気に入りに追加した順</option>
           </select>
         </label>
@@ -373,7 +373,8 @@ const PER_OPTIONS = [20, 50, 100];
 const PER_DEFAULT = 20;
 const TOP_TAGS = 40;
 const FAV_KEY = "tachieMatome.favorites.v1";
-const CLIP_KEY = "tachieMatome.clips.v1";
+const LIST_KEY = "tachieMatome.lists.v1";
+const LEGACY_LIST_KEY = "tachieMatome.clips.v1"; // 「クリップ」という名前だった頃の保存先
 const PER_KEY = "tachieMatome.perPage";
 const SOFTWARE = [
   ["VOICEROID", /voiceroid/],
@@ -387,7 +388,7 @@ const FREE_TAG = /フリー立ち絵リンク$/;
 const URL_RE = /https?:\/\/[^\s<>"']+/g;
 const DEFAULTS = {
   mode: "all", q: "", sw: "", free: "", year: "", url: "", adult: false, user: "", tags: [],
-  undone: false, sort: "new", view: "card", per: PER_DEFAULT, page: 1, clip: "",
+  undone: false, sort: "new", view: "card", per: PER_DEFAULT, page: 1, list: "",
 };
 
 let items = [];
@@ -476,12 +477,12 @@ function saveFavs() {
 function toggleFav(id) {
   if (favs[id]) {
     delete favs[id];
-    // クリップはお気に入りを整理するためのものなので、お気に入りから外したらクリップからも外す
-    const inClips = clips.filter((c) => c.items[id]);
-    for (const c of inClips) delete c.items[id];
-    if (inClips.length) {
-      saveClips();
-      toast(`お気に入りとクリップ ${inClips.length} 件から外しました`);
+    // リストはお気に入りを整理するためのものなので、お気に入りから外したらリストからも外す
+    const inLists = lists.filter((c) => c.items[id]);
+    for (const c of inLists) delete c.items[id];
+    if (inLists.length) {
+      saveLists();
+      toast(`お気に入りとリスト ${inLists.length} 件から外しました`);
     }
   } else {
     favs[id] = { added: new Date().toISOString(), done: false };
@@ -489,45 +490,56 @@ function toggleFav(id) {
   saveFavs();
 }
 
-// ---------------------------------------------------------------- クリップ（localStorage）
-// お気に入りの中を用途ごとに整理するリスト。1つの作品を複数のクリップに入れられる。
+// ---------------------------------------------------------------- リスト（localStorage）
+// お気に入りの中を用途ごとに整理するリスト。1つの作品を複数のリストに入れられる。
 // [{ id, name, created: ISO文字列, items: { [作品ID]: 追加日時ISO文字列 } }]（配列の順がタブの並び順）
-let clips = loadClips();
+migrateLegacyLists();
+let lists = loadLists();
 
-function loadClips() {
+// 「クリップ」という名前だった頃の保存データを新しい保存先へ移す
+function migrateLegacyLists() {
   try {
-    const v = JSON.parse(localStorage.getItem(CLIP_KEY) || "[]");
+    const old = localStorage.getItem(LEGACY_LIST_KEY);
+    if (old == null) return;
+    if (localStorage.getItem(LIST_KEY) == null) localStorage.setItem(LIST_KEY, old);
+    localStorage.removeItem(LEGACY_LIST_KEY);
+  } catch {}
+}
+
+function loadLists() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LIST_KEY) || "[]");
     return Array.isArray(v) ? v.filter((c) => c && typeof c.id === "string" && c.items && typeof c.items === "object") : [];
   } catch { return []; }
 }
 
-function saveClips() {
-  try { localStorage.setItem(CLIP_KEY, JSON.stringify(clips)); }
-  catch { toast("クリップを保存できませんでした（ブラウザの保存領域が使えません）"); }
+function saveLists() {
+  try { localStorage.setItem(LIST_KEY, JSON.stringify(lists)); }
+  catch { toast("リストを保存できませんでした（ブラウザの保存領域が使えません）"); }
   renderTabs();
 }
 
-function clipById(id) { return clips.find((c) => c.id === id); }
-function currentClip() { return state.mode === "clip" ? clipById(state.clip) : null; }
-function inFavView() { return state.mode === "fav" || state.mode === "clip"; }
+function listById(id) { return lists.find((c) => c.id === id); }
+function currentList() { return state.mode === "list" ? listById(state.list) : null; }
+function inFavView() { return state.mode === "fav" || state.mode === "list"; }
 
-// クリップ内の作品のうち、お気に入りに残っているものの数
-function clipCount(c) { return Object.keys(c.items).filter((id) => favs[id]).length; }
+// リスト内の作品のうち、お気に入りに残っているものの数
+function listCount(c) { return Object.keys(c.items).filter((id) => favs[id]).length; }
 
-function cleanClipName(s) { return String(s ?? "").replace(/\s+/g, " ").trim().slice(0, 40); }
+function cleanListName(s) { return String(s ?? "").replace(/\s+/g, " ").trim().slice(0, 40); }
 
-function defaultClipName() {
-  let n = clips.length + 1;
-  while (clips.some((c) => c.name === `クリップ${n}`)) n++;
-  return `クリップ${n}`;
+function defaultListName() {
+  let n = lists.length + 1;
+  while (lists.some((c) => c.name === `リスト${n}`)) n++;
+  return `リスト${n}`;
 }
 
-function askNewClip() {
-  const name = cleanClipName(prompt("新しいクリップの名前（あとから変更できます）", defaultClipName()));
+function askNewList() {
+  const name = cleanListName(prompt("新しいリストの名前（あとから変更できます）", defaultListName()));
   if (!name) return null;
   const c = { id: "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, created: new Date().toISOString(), items: {} };
-  clips.push(c);
-  saveClips();
+  lists.push(c);
+  saveLists();
   return c;
 }
 
@@ -538,11 +550,11 @@ function renderTabs() {
   $("tabs").innerHTML = [
     tab('data-mode="all"', "すべての作品", state.mode === "all"),
     tab('data-mode="fav"', `★ お気に入り<span class="n">${fav.toLocaleString("ja-JP")}</span>`, state.mode === "fav"),
-    clips.length ? `<span class="sep" aria-hidden="true"></span>` : "",
-    ...clips.map((c) => tab(`data-clip-tab="${esc(c.id)}" title="ダブルクリックで名前を変更"`,
-      `${esc(c.name)}<span class="n">${clipCount(c).toLocaleString("ja-JP")}</span>`,
-      state.mode === "clip" && state.clip === c.id)),
-    `<button type="button" class="addclip" data-new-clip title="新しいクリップを作る">＋ クリップ</button>`,
+    lists.length ? `<span class="sep" aria-hidden="true"></span>` : "",
+    ...lists.map((c) => tab(`data-list-tab="${esc(c.id)}" title="ダブルクリックで名前を変更"`,
+      `${esc(c.name)}<span class="n">${listCount(c).toLocaleString("ja-JP")}</span>`,
+      state.mode === "list" && state.list === c.id)),
+    `<button type="button" class="addlist" data-new-list title="新しいリストを作る">＋ リスト</button>`,
   ].join("");
 }
 
@@ -564,7 +576,7 @@ function downloadBlob(blob, ext, label = "favorites") {
 }
 
 function exportFavs() {
-  const data = { app: "tachie-matome", version: 2, exported_at: new Date().toISOString(), favorites: favs, clips };
+  const data = { app: "tachie-matome", version: 3, exported_at: new Date().toISOString(), favorites: favs, lists };
   downloadBlob(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }), "json");
 }
 
@@ -591,7 +603,7 @@ function exportCsv() {
     ]),
   ];
   const csv = "﻿" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
-  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "csv", currentClip()?.name || "favorites");
+  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "csv", currentList()?.name || "favorites");
   toast(`${list.length} 件をCSVで書き出しました`);
 }
 
@@ -610,25 +622,26 @@ async function importFavs(file) {
         done: Boolean(cur?.done || v?.done),
       };
     }
-    // クリップは同じ名前があれば中身を足し合わせ、なければ新しく作る（中身はお気に入りにあるものだけ）
-    let newClips = 0;
-    for (const src of Array.isArray(data.clips) ? data.clips : []) {
-      const name = cleanClipName(src?.name);
+    // リストは同じ名前があれば中身を足し合わせ、なければ新しく作る（中身はお気に入りにあるものだけ）
+    let newLists = 0;
+    const srcLists = data.lists || data.clips; // clips は「クリップ」という名前だった頃の書き出し
+    for (const src of Array.isArray(srcLists) ? srcLists : []) {
+      const name = cleanListName(src?.name);
       if (!name || !src.items || typeof src.items !== "object") continue;
-      let c = clips.find((x) => x.name === name);
+      let c = lists.find((x) => x.name === name);
       if (!c) {
         c = { id: "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name, created: new Date().toISOString(), items: {} };
-        clips.push(c);
-        newClips++;
+        lists.push(c);
+        newLists++;
       }
       for (const [id, at] of Object.entries(src.items)) {
         if (/^im\d+$/.test(id) && favs[id] && !c.items[id]) c.items[id] = typeof at === "string" ? at : new Date().toISOString();
       }
     }
-    saveClips();
+    saveLists();
     saveFavs();
     render();
-    toast(`読み込みました（お気に入り新規 ${added} 件${newClips ? `、クリップ新規 ${newClips} 件` : ""}）`);
+    toast(`読み込みました（お気に入り新規 ${added} 件${newLists ? `、リスト新規 ${newLists} 件` : ""}）`);
   } catch {
     toast("読み込めませんでした。書き出した JSON ファイルを選んでください");
   }
@@ -657,12 +670,14 @@ async function copyUrls() {
 // ---------------------------------------------------------------- URL と状態
 function readURL() {
   const p = new URLSearchParams(location.search);
-  // クリップIDはこのブラウザ内だけのものなので、見つからなければお気に入り（またはすべて）に戻す
-  const clip = clipById(p.get("clip") || "");
+  // リストIDはこのブラウザ内だけのものなので、見つからなければお気に入り（またはすべて）に戻す。
+  // 「クリップ」という名前だった頃の ?clip= も受け付ける
+  const listParam = p.get("list") || p.get("clip");
+  const list = listById(listParam || "");
   state = {
     ...DEFAULTS,
-    mode: clip ? "clip" : p.get("fav") === "1" || p.get("clip") ? "fav" : "all",
-    clip: clip ? clip.id : "",
+    mode: list ? "list" : p.get("fav") === "1" || listParam ? "fav" : "all",
+    list: list ? list.id : "",
     q: p.get("q") || "",
     sw: p.get("sw") || "",
     free: p.get("free") || "",
@@ -696,7 +711,7 @@ function savePer(n) {
 function writeURL() {
   const p = new URLSearchParams();
   if (state.mode === "fav") p.set("fav", "1");
-  if (state.mode === "clip") p.set("clip", state.clip);
+  if (state.mode === "list") p.set("list", state.list);
   for (const k of ["q", "sw", "free", "year", "url", "user"]) if (state[k]) p.set(k, state[k]);
   if (state.adult) p.set("adult", "1");
   for (const t of state.tags) p.append("tag", t);
@@ -711,9 +726,9 @@ function writeURL() {
 }
 
 function syncControls() {
-  if (state.mode === "clip" && !currentClip()) Object.assign(state, { mode: "fav", clip: "" });
+  if (state.mode === "list" && !currentList()) Object.assign(state, { mode: "fav", list: "" });
   const fav = inFavView();
-  const clip = currentClip();
+  const list = currentList();
   if (!fav && state.sort === "fav") state.sort = "new";
   $("q").value = state.q;
   for (const k of ["sw", "free", "year", "url", "sort", "per"]) $(k).value = state[k];
@@ -721,13 +736,13 @@ function syncControls() {
   $("undone").checked = state.undone;
   const favSort = $("sort").querySelector('[value="fav"]');
   favSort.hidden = !fav;
-  favSort.textContent = clip ? "クリップに追加した順" : "お気に入りに追加した順";
+  favSort.textContent = list ? "リストに追加した順" : "お気に入りに追加した順";
   $("favbar").hidden = !fav;
-  $("clipbar").hidden = !clip;
-  $("favonly").hidden = Boolean(clip);
-  $("favhint").hidden = Boolean(clip);
-  $("cliphint").hidden = !clip;
-  if (clip && document.activeElement !== $("clipname")) $("clipname").value = clip.name;
+  $("listbar").hidden = !list;
+  $("favonly").hidden = Boolean(list);
+  $("favhint").hidden = Boolean(list);
+  $("listhint").hidden = !list;
+  if (list && document.activeElement !== $("listname")) $("listname").value = list.name;
   for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.view === state.view));
   renderTabs();
 }
@@ -761,10 +776,10 @@ function filtered() {
   const { inc, exc } = parseQuery(state.q);
   if (inc.length || exc.length || state.sw) ensureIndexed();
   const fav = inFavView();
-  const clip = currentClip();
+  const list = currentList();
   return items.filter((it) => {
     if (fav && (!favs[it.id] || (state.undone && favs[it.id].done))) return false;
-    if (clip && !clip.items[it.id]) return false;
+    if (list && !list.items[it.id]) return false;
     if (!state.adult && it._adult) return false;
     if (state.sw === OTHER ? it._sw.length : state.sw && !it._sw.includes(state.sw)) return false;
     if (state.free && it._free !== (state.free === "1")) return false;
@@ -786,10 +801,10 @@ const SORTS = {
   fav: (a, b) => addedAt(b).localeCompare(addedAt(a)),
 };
 
-// クリップを表示中はクリップに追加した日時、お気に入りではお気に入りに追加した日時
+// リストを表示中はリストに追加した日時、お気に入りではお気に入りに追加した日時
 function addedAt(it) {
-  const clip = currentClip();
-  return (clip ? clip.items[it.id] : favs[it.id]?.added) || "";
+  const list = currentList();
+  return (list ? list.items[it.id] : favs[it.id]?.added) || "";
 }
 
 // ---------------------------------------------------------------- 描画
@@ -820,20 +835,20 @@ function doneBox(it) {
 
 function isDone(it) { return inFavView() && favs[it.id]?.done; }
 
-// お気に入り・クリップのタブで出す。入っているクリップを選ぶと外れる（✓ 付き）
-function clipSelect(it) {
+// お気に入り・リストのタブで出す。入っているリストを選ぶと外れる（✓ 付き）
+function listSelect(it) {
   if (!inFavView() || !favs[it.id]) return "";
-  const opts = clips.map((c) =>
+  const opts = lists.map((c) =>
     `<option value="${esc(c.id)}">${c.items[it.id] ? "✓ " : "　 "}${esc(c.name)}</option>`).join("");
-  const n = clips.filter((c) => c.items[it.id]).length;
-  return `<select class="clipsel" data-clip-add="${esc(it.id)}" aria-label="クリップに追加・削除">
-    <option value="">${n ? `クリップ ${n} 件に追加済み…` : "クリップに追加…"}</option>${opts}
-    <option value="__new">＋ 新しいクリップ…</option></select>`;
+  const n = lists.filter((c) => c.items[it.id]).length;
+  return `<select class="listsel" data-list-add="${esc(it.id)}" aria-label="リストに追加・削除">
+    <option value="">${n ? `リスト ${n} 件に追加済み…` : "リストに追加…"}</option>${opts}
+    <option value="__new">＋ 新しいリスト…</option></select>`;
 }
 
 function favTools(it) {
   if (!inFavView() || !favs[it.id]) return "";
-  return `<div class="favtools">${doneBox(it)}${clipSelect(it)}</div>`;
+  return `<div class="favtools">${doneBox(it)}${listSelect(it)}</div>`;
 }
 
 function userButton(it) {
@@ -866,7 +881,7 @@ function cardHTML(it) {
         ${userButton(it)}
         <span>${fmtDate(it.created)}</span>
         <span class="num">閲覧 ${fmtNum(it.views)}</span>
-        <span class="num">静画クリップ ${fmtNum(it.clips)}</span>
+        <span class="num">クリップ ${fmtNum(it.clips)}</span>
       </div>
       ${favTools(it)}
       ${ups ? `<div class="uploads">${ups}</div>` : ""}
@@ -878,7 +893,7 @@ function cardHTML(it) {
 
 function tableHTML(list) {
   const rows = list.map((it) => `<tr class="${isDone(it) ? "is-done" : ""}" data-id="${esc(it.id)}">
-    <td class="ops">${favButton(it)}${doneBox(it)}${clipSelect(it)}</td>
+    <td class="ops">${favButton(it)}${doneBox(it)}${listSelect(it)}</td>
     <td><a href="${esc(it.url)}" target="_blank" rel="noopener">${thumbImg(it, "mini")}</a></td>
     <td class="t"><a class="ttl" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title || it.id)}</a>
       ${it._adult ? ` <span class="badge adult">成人向け</span>` : ""}
@@ -890,7 +905,7 @@ function tableHTML(list) {
     <td class="num">${fmtNum(it.clips)}</td>
   </tr>`).join("");
   return `<div class="tablewrap"><table>
-    <thead><tr><th>★</th><th></th><th>タイトル</th><th>投稿者</th><th>投稿日</th><th>アップローダ</th><th>閲覧</th><th>静画クリップ</th></tr></thead>
+    <thead><tr><th>★</th><th></th><th>タイトル</th><th>投稿者</th><th>投稿日</th><th>アップローダ</th><th>閲覧</th><th>クリップ</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 
@@ -929,12 +944,12 @@ function renderActive() {
 
 function renderFavBar() {
   if (!inFavView()) return;
-  const clip = currentClip();
-  const ids = Object.keys(favs).filter((id) => !clip || clip.items[id]);
+  const list = currentList();
+  const ids = Object.keys(favs).filter((id) => !list || list.items[id]);
   const inData = ids.filter((id) => byId.has(id));
   const done = inData.filter((id) => favs[id].done).length;
   const missing = ids.length - inData.length;
-  $("favprogress").innerHTML = `${clip ? "このクリップの" : ""}確認済み <b>${done.toLocaleString("ja-JP")}</b> / ${inData.length.toLocaleString("ja-JP")} 件` +
+  $("favprogress").innerHTML = `${list ? "このリストの" : ""}確認済み <b>${done.toLocaleString("ja-JP")}</b> / ${inData.length.toLocaleString("ja-JP")} 件` +
     (missing ? `　（現在のデータにない ${missing} 件を含まず）` : "");
 }
 
@@ -964,8 +979,8 @@ function render() {
   const start = (state.page - 1) * state.per;
   const slice = list.slice(start, start + state.per);
 
-  const clip = currentClip();
-  const pool = inFavView() ? items.filter((it) => favs[it.id] && (!clip || clip.items[it.id])) : items;
+  const ulist = currentList();
+  const pool = inFavView() ? items.filter((it) => favs[it.id] && (!ulist || ulist.items[it.id])) : items;
   const hiddenAdult = state.adult ? 0 : pool.filter((it) => it._adult).length;
   $("count").innerHTML = `<b>${list.length.toLocaleString("ja-JP")}</b> 件` +
     (list.length ? `（${start + 1}–${start + slice.length} 件目）` : "") +
@@ -973,15 +988,15 @@ function render() {
 
   renderActive();
   // ページ送り・並び替え・表示切り替えでは件数が変わらないので、タグ一覧は作り直さない
-  const facetKey = JSON.stringify([state.mode, state.clip, state.q, state.sw, state.free, state.year, state.url,
+  const facetKey = JSON.stringify([state.mode, state.list, state.q, state.sw, state.free, state.year, state.url,
     state.adult, state.user, state.tags, state.undone, list.length]);
   if (facetKey !== lastFacetKey) {
     lastFacetKey = facetKey;
     renderFacets(list);
   }
   renderFavBar();
-  const emptyMsg = clip && !clipCount(clip)
-    ? "このクリップはまだ空です。「★ お気に入り」タブで、各作品の「クリップに追加…」から入れられます。"
+  const emptyMsg = ulist && !listCount(ulist)
+    ? "このリストはまだ空です。「★ お気に入り」タブで、各作品の「リストに追加…」から入れられます。"
     : state.mode === "fav" && !Object.keys(favs).length
       ? "お気に入りはまだありません。作品の ☆ を押すと、ここにまとめて表示されます。"
       : "条件に合う作品はありません。";
@@ -1021,43 +1036,43 @@ function bindEvents() {
     if (!b) return;
     if (b.dataset.mode) {
       if (state.mode === b.dataset.mode) return;
-      update({ mode: b.dataset.mode, clip: "", sort: b.dataset.mode === "fav" ? "fav" : "new", undone: false });
-    } else if (b.dataset.clipTab) {
-      if (state.mode === "clip" && state.clip === b.dataset.clipTab) return;
-      update({ mode: "clip", clip: b.dataset.clipTab, sort: "fav", undone: false });
-    } else if (b.dataset.newClip != null) {
-      const c = askNewClip();
-      if (c) update({ mode: "clip", clip: c.id, sort: "fav", undone: false });
+      update({ mode: b.dataset.mode, list: "", sort: b.dataset.mode === "fav" ? "fav" : "new", undone: false });
+    } else if (b.dataset.listTab) {
+      if (state.mode === "list" && state.list === b.dataset.listTab) return;
+      update({ mode: "list", list: b.dataset.listTab, sort: "fav", undone: false });
+    } else if (b.dataset.newList != null) {
+      const c = askNewList();
+      if (c) update({ mode: "list", list: c.id, sort: "fav", undone: false });
     }
   });
-  // クリップのタブをダブルクリックすると名前の入力欄へ
+  // リストのタブをダブルクリックすると名前の入力欄へ
   $("tabs").addEventListener("dblclick", (e) => {
-    if (!e.target.closest("[data-clip-tab]")) return;
-    $("clipname").focus();
-    $("clipname").select();
+    if (!e.target.closest("[data-list-tab]")) return;
+    $("listname").focus();
+    $("listname").select();
   });
 
-  $("clipname").addEventListener("keydown", (e) => {
+  $("listname").addEventListener("keydown", (e) => {
     if (e.key === "Enter") e.target.blur();
-    if (e.key === "Escape") { e.target.value = currentClip()?.name || ""; e.target.blur(); }
+    if (e.key === "Escape") { e.target.value = currentList()?.name || ""; e.target.blur(); }
   });
-  $("clipname").addEventListener("change", (e) => {
-    const c = currentClip();
+  $("listname").addEventListener("change", (e) => {
+    const c = currentList();
     if (!c) return;
-    const name = cleanClipName(e.target.value);
+    const name = cleanListName(e.target.value);
     e.target.value = name || c.name;
     if (!name || name === c.name) return;
     c.name = name;
-    saveClips();
-    render(); // 各作品の選択肢にもクリップ名が出ているので描画し直す
-    toast(`クリップ名を「${name}」に変更しました`);
+    saveLists();
+    render(); // 各作品の選択肢にもリスト名が出ているので描画し直す
+    toast(`リスト名を「${name}」に変更しました`);
   });
-  $("delclip").addEventListener("click", () => {
-    const c = currentClip();
-    if (!c || !confirm(`クリップ「${c.name}」を削除します。お気に入り自体は残ります。よろしいですか？`)) return;
-    clips = clips.filter((x) => x !== c);
-    saveClips();
-    update({ mode: "fav", clip: "" });
+  $("dellist").addEventListener("click", () => {
+    const c = currentList();
+    if (!c || !confirm(`リスト「${c.name}」を削除します。お気に入り自体は残ります。よろしいですか？`)) return;
+    lists = lists.filter((x) => x !== c);
+    saveLists();
+    update({ mode: "fav", list: "" });
   });
 
   $("tagmore").addEventListener("click", () => {
@@ -1078,31 +1093,31 @@ function bindEvents() {
   });
   $("clearfav").addEventListener("click", () => {
     const n = Object.keys(favs).length;
-    const clipNote = clips.length ? `とクリップ ${clips.length} 件` : "";
-    if (!n || !confirm(`お気に入り ${n} 件${clipNote}をすべて削除します。元に戻せません。よろしいですか？`)) return;
+    const listNote = lists.length ? `とリスト ${lists.length} 件` : "";
+    if (!n || !confirm(`お気に入り ${n} 件${listNote}をすべて削除します。元に戻せません。よろしいですか？`)) return;
     favs = {};
-    clips = [];
-    saveClips();
+    lists = [];
+    saveLists();
     saveFavs();
     render();
   });
 
   document.addEventListener("change", (e) => {
-    const target = e.target.dataset?.clipAdd;
+    const target = e.target.dataset?.listAdd;
     if (target != null) {
       const sel = e.target;
       const created = sel.value === "__new";
-      const c = created ? askNewClip() : clipById(sel.value);
+      const c = created ? askNewList() : listById(sel.value);
       if (!c) { sel.value = ""; return; }
       const removing = Boolean(c.items[target]);
       if (removing) delete c.items[target];
       else c.items[target] = new Date().toISOString();
-      saveClips();
+      saveLists();
       toast(removing ? `「${c.name}」から外しました` : `「${c.name}」に追加しました`);
-      // クリップを新しく作ると他の作品の選択肢も変わり、表示中のクリップから外すと一覧から消えるので、
+      // リストを新しく作ると他の作品の選択肢も変わり、表示中のリストから外すと一覧から消えるので、
       // そのときは描画し直す。それ以外はその場で更新
-      if (created || (removing && state.mode === "clip" && state.clip === c.id)) render();
-      else sel.outerHTML = clipSelect(byId.get(target));
+      if (created || (removing && state.mode === "list" && state.list === c.id)) render();
+      else sel.outerHTML = listSelect(byId.get(target));
       return;
     }
     const id = e.target.dataset?.done;
@@ -1133,7 +1148,7 @@ function bindEvents() {
     } else if (el.dataset.clear === "user") {
       update({ user: "" });
     } else if (el.dataset.clear === "all") {
-      update({ ...DEFAULTS, tags: [], mode: state.mode, clip: state.clip, adult: state.adult, sort: state.sort,
+      update({ ...DEFAULTS, tags: [], mode: state.mode, list: state.list, adult: state.adult, sort: state.sort,
         view: state.view, per: state.per, undone: state.undone });
     } else if (el.dataset.page != null) {
       goPage(parseInt(el.dataset.page, 10));
@@ -1151,10 +1166,10 @@ function bindEvents() {
     goPage(next);
   });
 
-  // 別タブでお気に入り・クリップを変更したら反映する
+  // 別タブでお気に入り・リストを変更したら反映する
   window.addEventListener("storage", (e) => {
     if (e.key === FAV_KEY) favs = loadFavs();
-    else if (e.key === CLIP_KEY) clips = loadClips();
+    else if (e.key === LIST_KEY) lists = loadLists();
     else return;
     syncControls();
     render();
