@@ -201,6 +201,17 @@ td.ops .listsel { margin-top: 6px; width: 100%; }
 .meta .num { font-variant-numeric: tabular-nums; }
 .user { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; text-align: left; }
 .user:hover { text-decoration: underline; }
+/* 投稿者の移行先（links.json）。TACHIE → 手入力の移行先の順 */
+.clinks { display: inline-flex; flex-wrap: wrap; gap: 3px; vertical-align: middle; }
+.clink {
+  display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; line-height: 1; font-weight: 600;
+  padding: 3px 6px; border-radius: 5px; text-decoration: none; white-space: nowrap;
+  background: var(--accent-soft); color: var(--accent);
+}
+.clink.tachie { background: var(--free-soft); color: var(--free); }
+.clink:hover { text-decoration: underline; }
+.clink svg { width: 11px; height: 11px; flex: none; }
+td.who .clinks { display: flex; margin-top: 4px; }
 .uploads { display: grid; gap: 4px; }
 .uplink {
   display: block; padding: 5px 9px; border-radius: 7px; background: var(--up-soft); color: var(--up);
@@ -253,6 +264,75 @@ kbd { font: 11px/1 system-ui, sans-serif; padding: 2px 5px; border: 1px solid va
   background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px;
   box-shadow: 0 4px 16px rgba(0,0,0,.2); max-width: calc(100vw - 32px);
 }
+.copysel {
+  position: fixed; z-index: 20; width: 30px; height: 30px; padding: 0; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); font-size: 15px; line-height: 1; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .25);
+}
+.copysel:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+
+/* ダウンロードモード（画面全体に重ねるオーバーレイ） */
+body:has(dialog.dlmode[open]) { overflow: hidden; }
+dialog.dlmode {
+  width: min(1240px, calc(100vw - 24px)); height: calc(100vh - 24px); max-width: none; max-height: none;
+  padding: 0; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); color: var(--text);
+}
+dialog.dlmode[open] { display: flex; flex-direction: column; }
+dialog.dlmode::backdrop { background: rgba(0, 0, 0, .6); }
+@media (max-width: 640px) { dialog.dlmode { width: 100vw; height: 100vh; border-radius: 0; border: 0; } }
+.dl-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--border); background: var(--surface); display: grid; gap: 8px; }
+.dl-titlebar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.dl-titlebar h2 { margin: 0; font-size: 18px; }
+.dl-scope { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.dl-progress { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dl-bar { flex: 1 1 200px; height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.dl-bar span { display: block; height: 100%; width: 0; background: var(--free); transition: width .2s; }
+.dl-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.dl-head .hint { margin: 0; }
+.dl-body { flex: 1; overflow: auto; overscroll-behavior: contain; }
+.dl-body table { font-size: 13px; }
+.dl-body thead th { position: sticky; top: 0; z-index: 1; }
+.dl-body tr { content-visibility: auto; contain-intrinsic-size: auto 96px; }
+.dl-body tr { scroll-margin-top: 36px; } /* 固定した見出し行に隠れないように */
+.dl-body tr.dl-flash { animation: dl-flash 1.2s ease-out; }
+@keyframes dl-flash { from { background: var(--accent-soft); } to { background: transparent; } }
+@media (max-width: 640px) { .dl-body tr { scroll-margin-top: 0; } }
+.dl-body tr.is-done { opacity: .5; }
+.dl-body tr.is-done:hover { opacity: 1; }
+.dl-body td.no { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.dl-body td.chk { text-align: center; }
+.dl-body td.chk input { width: 18px; height: 18px; }
+.dl-links { display: grid; gap: 4px; min-width: 220px; }
+.dl-links a {
+  display: block; padding: 5px 9px; border-radius: 7px; background: var(--up-soft); color: var(--up);
+  font-weight: 600; text-decoration: none; word-break: break-all;
+}
+.dl-links a:hover { text-decoration: underline; }
+.dl-links a::before { content: "↓ "; }
+.dl-links a.opened { background: var(--free-soft); color: var(--free); }
+.dl-links a.opened::before { content: "✓ "; }
+.dl-pass { margin: 0; padding: 4px 8px; border-radius: 6px; background: var(--surface-2); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dl-pass + .dl-pass { margin-top: 4px; }
+.dl-empty { padding: 48px 16px; text-align: center; color: var(--muted); }
+/* 狭い画面では行を縦積みにして、ダウンロード先が画面外に出ないようにする */
+@media (max-width: 640px) {
+  .dl-body thead { display: none; }
+  .dl-body table, .dl-body tbody { display: block; }
+  .dl-body tr {
+    display: grid; grid-template-columns: 2em 24px 96px minmax(0, 1fr); gap: 8px 10px; align-items: start;
+    padding: 12px; border-bottom: 1px solid var(--border);
+  }
+  .dl-body td { display: block; border: 0; padding: 0; min-width: 0; }
+  .dl-body td.no { grid-column: 1; text-align: left; }
+  .dl-body td.chk { grid-column: 2; }
+  .dl-body td:nth-child(3) { grid-column: 3; }
+  .dl-body td.t { grid-column: 4; min-width: 0; }
+  .dl-body td:nth-child(5), .dl-body td:nth-child(6) { grid-column: 1 / -1; }
+  .dl-links { min-width: 0; }
+  .dl-nohint { display: none; }
+}
+
 footer { color: var(--muted); font-size: 12px; padding: 24px 16px 40px; }
 footer p { margin: 4px 0; }
 </style>
@@ -315,6 +395,7 @@ footer p { margin: 4px 0; }
         <label class="done"><input type="checkbox" id="undone"> 未確認のみ表示</label>
       </div>
       <div class="row">
+        <button type="button" class="btn primary" id="opendl">ダウンロードモード</button>
         <button type="button" class="btn" id="copyurls">表示中のURLをコピー</button>
         <button type="button" class="btn" id="exportcsv">表示中をCSVで書き出し</button>
         <span class="row" id="favonly">
@@ -365,6 +446,31 @@ footer p { margin: 4px 0; }
   <p>概要文にはダウンロード用パスワードが書かれていることがあります。元ページで公開されている情報のため、そのまま掲載しています。</p>
   <p>掲載の取り下げ・お問い合わせ：<a href="https://x.com/bluemist_im" target="_blank" rel="noopener">X @bluemist_im</a></p>
 </footer>
+<dialog class="dlmode" id="dlmode" aria-labelledby="dltitle">
+  <div class="dl-head">
+    <div class="dl-titlebar">
+      <h2 id="dltitle">ダウンロードモード <span class="dl-scope" id="dlscope"></span></h2>
+      <button type="button" class="btn" id="dlclose">閉じる（Esc）</button>
+    </div>
+    <div class="dl-progress">
+      <div class="dl-bar" aria-hidden="true"><span id="dlbar"></span></div>
+      <span class="progress" id="dlcount"></span>
+    </div>
+    <div class="dl-controls">
+      <label class="done"><input type="checkbox" id="dlhide" checked> 確認済みを隠す</label>
+      <label class="count">並び
+        <select id="dlorder">
+          <option value="asc">追加した順（古い順）</option>
+          <option value="desc">追加した順（新しい順）</option>
+        </select>
+      </label>
+      <button type="button" class="btn" id="dlnext">次の未確認へ</button>
+    </div>
+    <p class="hint">アップローダのリンクを開くと、その作品が「確認済み」になります。確認済みになった行は薄く表示され、次に開いたときに隠れます。パスワードは各行の「パスワードらしき記載」か概要文で確認してください。</p>
+  </div>
+  <div class="dl-body" id="dlbody"></div>
+</dialog>
+
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script>
@@ -388,11 +494,12 @@ const FREE_TAG = /フリー立ち絵リンク$/;
 const URL_RE = /https?:\/\/[^\s<>"']+/g;
 const DEFAULTS = {
   mode: "all", q: "", sw: "", free: "", year: "", url: "", adult: false, user: "", tags: [],
-  undone: false, sort: "new", view: "card", per: PER_DEFAULT, page: 1, list: "",
+  undone: false, sort: "new", view: "card", per: PER_DEFAULT, page: 1, list: "", dl: false,
 };
 
 let items = [];
 let byId = new Map();
+let creators = {}; // 投稿者ID → { tachie, dest[] }（links.json）
 let state = { ...DEFAULTS, tags: [] };
 let pageCount = 1;
 let tagsExpanded = false;
@@ -564,6 +671,108 @@ function setDone(id, done) {
   saveFavs();
 }
 
+// ---------------------------------------------------------------- ダウンロードモード
+// お気に入り（またはリスト）の作品を追加した順に並べ、アップローダのリンクを開いたら「確認済み」にする。
+// 確認済みにした行はその場では消さず（パスワードや他のリンクを見るため）、次に描画し直したときに隠す。
+let dlHide = true;
+let dlOrder = "asc";
+
+// 概要文からパスワードらしき行を拾う（書式は自由なので目安）
+const PASS_RE = /pass|ｐａｓｓ|パス|ﾊﾟｽ|\bpw\b|ｐｗ|dl\s*key|dlキー|ＤＬキー|解凍/i;
+
+function passHints(desc) {
+  return (desc || "").split("\n").map((l) => l.trim()).filter((l) => l && PASS_RE.test(l))
+    .slice(0, 3).map((l) => (l.length > 120 ? l.slice(0, 120) + "…" : l));
+}
+
+function dlItems() {
+  const ulist = currentList();
+  const list = items.filter((it) => favs[it.id] && (!ulist || ulist.items[it.id]));
+  list.sort((a, b) => dlOrder === "asc" ? addedAt(a).localeCompare(addedAt(b)) : addedAt(b).localeCompare(addedAt(a)));
+  return list;
+}
+
+function dlRow(it, n) {
+  const fav = favs[it.id];
+  const opened = new Set(fav.opened || []);
+  const links = it.uploader_urls.length
+    ? it.uploader_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" data-dl-link="${esc(it.id)}"${opened.has(u) ? ' class="opened"' : ""}>${esc(shortUrl(u))}</a>`).join("")
+    : `<span class="badge nourl">URL抽出なし</span> <span class="hint">静画のページで確認してください</span>`;
+  const hints = passHints(it.description).map((l) => `<p class="dl-pass">${linkify(l)}</p>`).join("");
+  return `<tr class="${fav.done ? "is-done" : ""}" data-id="${esc(it.id)}">
+    <td class="no">${n}</td>
+    <td class="chk"><input type="checkbox" data-dl-done="${esc(it.id)}"${fav.done ? " checked" : ""} aria-label="確認済み"></td>
+    <td><a href="${esc(it.url)}" target="_blank" rel="noopener">${thumbImg(it, "mini")}</a></td>
+    <td class="t"><a class="ttl" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title || it.id)}</a>
+      <div class="meta">${esc(it.user_name || "")}${creatorLinks(it.user_id)}<span>${fmtDate(it.created)}</span>${it._adult ? `<span class="badge adult">成人向け</span>` : ""}</div>
+      ${descBlock(it)}</td>
+    <td><div class="dl-links">${links}</div></td>
+    <td>${hints || `<span class="hint dl-nohint">—</span>`}</td>
+  </tr>`;
+}
+
+function renderDlProgress() {
+  const all = dlItems();
+  const done = all.filter((it) => favs[it.id].done).length;
+  const rest = all.length - done;
+  $("dlcount").innerHTML = `残り <b>${rest.toLocaleString("ja-JP")}</b> 件 / 全 ${all.length.toLocaleString("ja-JP")} 件（確認済み ${done.toLocaleString("ja-JP")} 件）`;
+  $("dlbar").style.width = all.length ? `${(done / all.length) * 100}%` : "0";
+}
+
+function renderDl() {
+  const ulist = currentList();
+  $("dlscope").textContent = ulist ? `— リスト「${ulist.name}」` : "— ★ お気に入り";
+  $("dlhide").checked = dlHide;
+  $("dlorder").value = dlOrder;
+  const all = dlItems();
+  const rows = all.map((it, i) => [it, i + 1]).filter(([it]) => !dlHide || !favs[it.id].done);
+  $("dlbody").innerHTML = rows.length
+    ? `<table><thead><tr><th>#</th><th>確認済み</th><th></th><th>作品</th><th>ダウンロード先（開くと確認済み）</th><th>パスワードらしき記載</th></tr></thead>
+       <tbody>${rows.map(([it, n]) => dlRow(it, n)).join("")}</tbody></table>`
+    : `<div class="dl-empty">${all.length ? "すべて確認済みです。お疲れさまでした。「確認済みを隠す」を外すと一覧を見直せます。" : "対象の作品がありません。作品の ☆ でお気に入りに追加してください。"}</div>`;
+  renderDlProgress();
+}
+
+function openDl() {
+  if (!inFavView()) return;
+  renderDl();
+  if (!$("dlmode").open) $("dlmode").showModal();
+  $("dlbody").scrollTop = 0;
+  state.dl = true;
+  writeURL();
+}
+
+function closeDl() {
+  if ($("dlmode").open) $("dlmode").close();
+  if (!state.dl) return;
+  state.dl = false;
+  writeURL();
+  render(); // 確認済みの変化を一覧にも反映する
+}
+
+// 行の見た目だけを更新する（行は消さない）
+function markDlRow(id, done) {
+  const row = $("dlbody").querySelector(`tr[data-id="${CSS.escape(id)}"]`);
+  if (row) {
+    row.classList.toggle("is-done", done);
+    const box = row.querySelector("[data-dl-done]");
+    if (box) box.checked = done;
+  }
+  renderDlProgress();
+}
+
+function onDlLinkOpen(a) {
+  const id = a.dataset.dlLink;
+  const fav = favs[id];
+  if (!fav) return;
+  const url = a.getAttribute("href");
+  fav.opened = [...new Set([...(fav.opened || []), url])];
+  fav.done = true;
+  saveFavs();
+  a.classList.add("opened");
+  markDlRow(id, true);
+}
+
 function downloadBlob(blob, ext, label = "favorites") {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -655,6 +864,11 @@ async function copyUrls() {
     it.url,
     ...it.uploader_urls,
   ].join("\n")).join("\n\n") + "\n";
+  await copyText(text);
+  toast(`${list.length} 件分のURLをコピーしました`);
+}
+
+async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -664,7 +878,52 @@ async function copyUrls() {
     document.execCommand("copy");
     ta.remove();
   }
-  toast(`${list.length} 件分のURLをコピーしました`);
+}
+
+// 文字列を選択すると、選択範囲の右上にコピーボタンを出す（ページ全体・ダウンロードモードの中でも使える）
+function initSelectionCopy() {
+  const btn = Object.assign(document.createElement("button"), {
+    type: "button", className: "copysel", textContent: "📋", title: "選択した文字列をコピー", hidden: true,
+  });
+  btn.setAttribute("aria-label", "選択した文字列をコピー");
+  let text = "";
+  let timer;
+  const hide = () => { btn.hidden = true; };
+  const place = () => {
+    const sel = getSelection();
+    const t = sel && !sel.isCollapsed ? sel.toString().trim() : "";
+    if (!t || !sel.rangeCount) { hide(); return; }
+    const range = sel.getRangeAt(0);
+    const node = range.commonAncestorContainer;
+    const el = node.nodeType === 1 ? node : node.parentElement;
+    if (!el || el.closest("input, textarea, select")) { hide(); return; }
+    // モーダルの中ではモーダルより手前に出すため、ボタンをモーダル内に置く
+    const host = el.closest("dialog[open]") || document.body;
+    if (btn.parentElement !== host) host.append(btn);
+    const rects = range.getClientRects();
+    const r = rects[rects.length - 1] || range.getBoundingClientRect();
+    text = t;
+    btn.textContent = "📋";
+    btn.style.left = `${Math.min(r.right + 6, innerWidth - 40)}px`;
+    btn.style.top = `${Math.max(r.top - 6, 4)}px`;
+    btn.hidden = false;
+  };
+  // マウス・キーボード・タッチのどの選択にも対応するよう selectionchange で拾い、選択が落ち着いてから出す
+  document.addEventListener("selectionchange", () => {
+    clearTimeout(timer);
+    if (getSelection().isCollapsed) { hide(); return; }
+    timer = setTimeout(place, 250);
+  });
+  document.addEventListener("scroll", hide, true);
+  btn.addEventListener("mousedown", (e) => e.preventDefault()); // 押しても選択が外れないように
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await copyText(text);
+    // トーストはモーダルの裏に隠れることがあるので、ボタン自体で完了を示す
+    btn.textContent = "✓";
+    setTimeout(hide, 800);
+  });
+  document.body.append(btn);
 }
 
 // ---------------------------------------------------------------- URL と状態
@@ -687,6 +946,7 @@ function readURL() {
     user: p.get("user") || "",
     tags: p.getAll("tag"),
     undone: p.get("undone") === "1",
+    dl: p.get("dl") === "1",
     sort: p.get("sort") || "new",
     view: p.get("view") === "table" ? "table" : "card",
     per: parsePer(p.get("per")) || loadPer(),
@@ -716,6 +976,7 @@ function writeURL() {
   if (state.adult) p.set("adult", "1");
   for (const t of state.tags) p.append("tag", t);
   if (inFavView() && state.undone) p.set("undone", "1");
+  if (inFavView() && state.dl) p.set("dl", "1");
   if (state.sort !== DEFAULTS.sort) p.set("sort", state.sort);
   if (state.view !== DEFAULTS.view) p.set("view", state.view);
   // ページ番号は表示件数とセットでないと共有先で別の位置になるので、2ページ目以降は必ず残す
@@ -851,6 +1112,26 @@ function favTools(it) {
   return `<div class="favtools">${doneBox(it)}${listSelect(it)}</div>`;
 }
 
+// 投稿者の移行先。手元のメモ（tachie.py links）から作った links.json があるときだけ出す
+const EXT_ICON = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h4v4M13 3 7 9M11 9.5V13H3V5h3.5"/></svg>`;
+const DEST_LABELS = [[/(^|\.)booth\.pm$/, "BOOTH"], [/(^|\.)fanbox\.cc$/, "FANBOX"], [/(^|\.)xfolio\.jp$/, "Xfolio"],
+  [/(^|\.)google\.com$/, "Google"], [/(^|\.)tachie\.net$/, "TACHIE"], [/(^|\.)skeb\.jp$/, "Skeb"], [/(^|\.)dlsite\.com$/, "DLsite"]];
+
+function destLabel(u) {
+  let host = "";
+  try { host = new URL(u).hostname.replace(/^www\./, ""); } catch { return "移行先"; }
+  return DEST_LABELS.find(([re]) => re.test(host))?.[1] || host;
+}
+
+function creatorLinks(uid) {
+  const c = creators[uid];
+  if (!c) return "";
+  const out = [];
+  if (c.tachie) out.push(`<a class="clink tachie" href="${esc(c.tachie)}" target="_blank" rel="noopener noreferrer" title="TACHIE のプロフィール">${EXT_ICON}TACHIE</a>`);
+  for (const u of c.dest || []) out.push(`<a class="clink" href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="移行先：${esc(u)}">${EXT_ICON}${esc(destLabel(u))}</a>`);
+  return out.length ? `<span class="clinks">${out.join("")}</span>` : "";
+}
+
 function userButton(it) {
   return it.user_name
     ? `<button type="button" class="user" data-user="${esc(it.user_id)}">${esc(it.user_name)}</button>` : "";
@@ -878,7 +1159,7 @@ function cardHTML(it) {
         ${favButton(it)}
       </div>
       <div class="meta">
-        ${userButton(it)}
+        ${userButton(it)}${creatorLinks(it.user_id)}
         <span>${fmtDate(it.created)}</span>
         <span class="num">閲覧 ${fmtNum(it.views)}</span>
         <span class="num">クリップ ${fmtNum(it.clips)}</span>
@@ -898,7 +1179,7 @@ function tableHTML(list) {
     <td class="t"><a class="ttl" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.title || it.id)}</a>
       ${it._adult ? ` <span class="badge adult">成人向け</span>` : ""}
       ${descBlock(it)}</td>
-    <td class="who">${userButton(it) || "—"}</td>
+    <td class="who">${userButton(it) || "—"}${creatorLinks(it.user_id)}</td>
     <td class="date">${fmtDate(it.created)}</td>
     <td class="u">${it.uploader_urls.length ? it.uploader_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(shortUrl(u))}</a>`).join("") : `<span class="badge nourl">URL抽出なし</span>`}</td>
     <td class="num">${fmtNum(it.views)}</td>
@@ -934,7 +1215,7 @@ function renderActive() {
   const pills = [];
   if (state.user) {
     const name = items.find((it) => it.user_id === state.user)?.user_name || state.user;
-    pills.push(`<button type="button" class="pill" data-clear="user">投稿者：${esc(name)}<span aria-hidden="true">×</span></button>`);
+    pills.push(`<button type="button" class="pill" data-clear="user">投稿者：${esc(name)}<span aria-hidden="true">×</span></button>${creatorLinks(state.user)}`);
   }
   for (const t of state.tags) pills.push(`<button type="button" class="pill" data-clear-tag="${esc(t)}">タグ：${esc(t)}<span aria-hidden="true">×</span></button>`);
   const dirty = pills.length || state.q || state.sw || state.free || state.year || state.url;
@@ -1158,12 +1439,51 @@ function bindEvents() {
   // ← → でページ送り（入力中・修飾キー併用時は無効）
   document.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    if ($("dlmode").open) return; // ダウンロードモード中は裏の一覧をページ送りしない
     if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
     if (e.target.closest?.("input, select, textarea, [contenteditable]")) return;
     const next = state.page + (e.key === "ArrowRight" ? 1 : -1);
     if (next < 1 || next > pageCount) return;
     e.preventDefault();
     goPage(next);
+  });
+
+  // ダウンロードモード
+  $("opendl").addEventListener("click", openDl);
+  // close イベントが届かない環境があるので、閉じる操作から直接後片付けする（close は保険）
+  $("dlclose").addEventListener("click", closeDl);
+  $("dlmode").addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    closeDl();
+  });
+  $("dlmode").addEventListener("close", closeDl);
+  $("dlhide").addEventListener("change", (e) => { dlHide = e.target.checked; renderDl(); });
+  $("dlorder").addEventListener("change", (e) => { dlOrder = e.target.value; renderDl(); });
+  $("dlnext").addEventListener("click", () => {
+    const row = [...$("dlbody").querySelectorAll("tr[data-id]")].find((r) => !r.classList.contains("is-done"));
+    if (!row) { toast("未確認の作品はありません"); return; }
+    row.scrollIntoView({ block: "start" });
+    // 件数が少なくてスクロールしないときも押した反応が分かるよう、行を一瞬強調する
+    row.classList.remove("dl-flash");
+    void row.offsetWidth;
+    row.classList.add("dl-flash");
+    row.querySelector("[data-dl-link]")?.focus();
+  });
+  // 通常のクリックと中クリック（新しいタブで開く）の両方で確認済みにする
+  $("dlbody").addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-dl-link]");
+    if (a) onDlLinkOpen(a);
+  });
+  $("dlbody").addEventListener("auxclick", (e) => {
+    const a = e.button === 1 && e.target.closest("a[data-dl-link]");
+    if (a) onDlLinkOpen(a);
+  });
+  $("dlbody").addEventListener("change", (e) => {
+    const id = e.target.dataset?.dlDone;
+    if (id == null) return;
+    setDone(id, e.target.checked);
+    markDlRow(id, e.target.checked);
   });
 
   // 別タブでお気に入り・リストを変更したら反映する
@@ -1174,6 +1494,11 @@ function bindEvents() {
     syncControls();
     render();
     writeURL();
+    // ダウンロードモード中は行を消さずに、確認済みの印と進み具合だけ合わせる
+    if ($("dlmode").open) {
+      for (const row of $("dlbody").querySelectorAll("tr[data-id]")) markDlRow(row.dataset.id, Boolean(favs[row.dataset.id]?.done));
+      renderDlProgress();
+    }
   });
   window.addEventListener("popstate", () => { readURL(); syncControls(); render(); });
 }
@@ -1200,7 +1525,11 @@ async function main() {
   if (matchMedia("(max-width: 640px)").matches) $("tagpanel").open = false;
   renderTabs();
   bindEvents();
+  initSelectionCopy();
   $("results").innerHTML = `<div class="empty">作品データを読み込んでいます…（約 3MB）</div>`;
+  // 移行先のリンクは無くても一覧は使えるので、読めなければ黙って省く
+  const linksReady = fetch("links.json", { cache: "no-cache" })
+    .then((r) => (r.ok ? r.json() : null)).then((d) => { creators = d?.creators || {}; }).catch(() => {});
   try {
     const res = await fetch("data.json", { cache: "no-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1213,10 +1542,12 @@ async function main() {
     $("results").innerHTML = `<div class="empty">data.json を読み込めませんでした（${esc(err.message)}）。<br>ファイルを直接開いた場合は、このフォルダで <code>python -m http.server</code> を実行して http://localhost:8000/ から開いてください。</div>`;
     return;
   }
+  await linksReady;
   initOptions();
   readURL();
   syncControls();
   render();
+  if (state.dl && inFavView()) openDl(); // 再読み込みしてもダウンロードモードのまま続けられる
   setTimeout(indexInBackground, 0);
 }
 main();
